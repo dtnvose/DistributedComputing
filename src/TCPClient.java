@@ -8,17 +8,17 @@ import java.util.Scanner;
 
 public class TCPClient {
     	 	
-    	private final static String ROUTER_ADDRESS = "192.168.1.9";
-    	private final static String SERVER_ADDRESS = "192.168.1.9";
+    	private final static String ROUTER_ADDRESS = "192.168.1.20";
+    	private final static String SERVER_ADDRESS = "192.168.1.20";
     	private final static String CLIENT_ADDRESS = "192.168.1.35";
     	private final static int PORT = 5555;	
     	
         public static void main(String[] args) throws IOException { 	
         	Scanner sin = new Scanner(System.in);
  		   	System.out.println("Name of file: ");
- 		   	String videoFile = sin.nextLine();
+ 		   	String file = sin.nextLine();
  		   	sin.close();
- 		   	Path filePath = Paths.get("src/",videoFile);
+ 		   	Path filePath = Paths.get("src/",file);
  		   	byte[] bytes = Files.readAllBytes(filePath);
         	
  		   	// Variables for setting up connection and communication
@@ -46,6 +46,7 @@ public class TCPClient {
 
             //ROUTER COMMUNICATION
             out.writeUTF(SERVER_ADDRESS);
+            out.flush();
             // initial send (IP of the destination Server)
             fromServer = in.readUTF();//initial receive from router (verification of connection)
             System.out.println("ServerRouter: " + fromServer);
@@ -53,14 +54,16 @@ public class TCPClient {
             //CLIENT TO SERVER
             byte[] complete = new byte[3];//flag that file is finished
             complete = "done".getBytes();
-            out.writeUTF(videoFile.substring(videoFile.lastIndexOf(".")+1, videoFile.length())); //Sends the file extension to server
+            out.writeUTF(file.substring(file.lastIndexOf(".")+1, file.length())); //Sends the file extension to server
             out.flush();
-            out.writeInt(bytes.length);
-            System.out.println(bytes.length);
             System.out.println("Server: " + in.readUTF());
-     	   	out.write(bytes,0,bytes.length);
+            out.writeInt(bytes.length); //sends length of file to server
+            out.flush();
+            System.out.println(bytes.length);
+            System.out.println("Server: " + in.readUTF()); //blocks until server is ready for file transfer
+     	   	out.write(bytes,0,bytes.length); // transfers file
      	   	out.flush();
-     	   	out.write(complete,0,3);
+     	   	out.write(complete,0,3); //sends flag
      	   	out.flush();
      	   	out.close();
      	   	in.close();

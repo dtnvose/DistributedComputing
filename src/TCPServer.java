@@ -4,12 +4,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 public class TCPServer {
 	
 	private final static int END_OF_FILE = 12345;
-	private final static String ROUTER_ADDRESS = "192.168.1.9";
-	private final static String SERVER_ADDRESS = "192.168.1.9";
+	private final static String ROUTER_ADDRESS = "192.168.1.20";
+	private final static String SERVER_ADDRESS = "192.168.1.20";
 	private final static String CLIENT_ADDRESS = "192.168.1.35";
 	private final static int PORT = 5555;
 	
@@ -48,28 +51,61 @@ public class TCPServer {
 		
 		//SERVER TO CLIENT COMMUNICATION		
 		extension = in.readUTF();
+		out.writeUTF("extension received");
 		int fileSize = 0;
 		Date date = new Date();
 		FileOutputStream fos = new FileOutputStream("TEST_FILE" + date.getTime() + "." + extension);
 		fileSize = in.readInt();
 		System.out.println("File Size: " + fileSize);
-			
+		
+		//metrics of file transfer
+		List<Integer> packageSizes = new ArrayList<Integer>();
+		int totalBytes = 0;
+		int numPackages = 0;
+		long totalTimeMillis = 0;
+		
+		
 		out.writeUTF("Ready for file transfer");
 		byte[] buffer = new byte[fileSize];
-		int n = 0;
-		int total = 0;
-		while((n = in.read(buffer)) != -1 && n!= 3){
-			total+=n;
-			System.out.println(total + " = " + fileSize);
-			fos.write(buffer,0,n);
+		
+		long startTime = System.currentTimeMillis();
+		int packageSize = 0;
+		while((packageSize = in.read(buffer)) != -1){
+			
+			//writes file
+			fos.write(buffer,0,packageSize);
 			fos.flush();
-			if(total >= fileSize)
+			
+			//metrics
+			packageSizes.add(packageSize);
+			numPackages++;
+			totalBytes+=packageSize;
+			System.out.println(totalBytes + " = " + fileSize);
+			
+			if(totalBytes >= fileSize){
+				totalBytes -= 3;
 				break;
+			}
 		}
 		byte[] complete = new byte[3];
 		complete = "done".getBytes();
 		out.write(complete,0,3);
 		System.out.println("SUCCESS");
+		
+		//metrics
+		totalTimeMillis = System.currentTimeMillis() - startTime;
+		//Avg package size
+		int sum = 0;
+		for(int i = 0; i < packageSizes.size(); i++){
+			sum += packageSizes.get(i);
+		}
+		float avgPackageSize = sum/packageSizes.size();
+		System.out.println("Total Time: " + totalTimeMillis + "ms \n" + 
+					  "Min Package Size: " + Collections.min(packageSizes) + " bytes\n" +
+					  "Max Package Size: " + Collections.max(packageSizes) + " bytes\n" + 
+					  "Avg Package Size: " + avgPackageSize + " bytes\n" + 
+					  "Total bytes Received: " + totalBytes + " bytes\n" + 
+					  "Total Packages Received: " + numPackages);
 			
 		// closing connections
 		fos.close();
